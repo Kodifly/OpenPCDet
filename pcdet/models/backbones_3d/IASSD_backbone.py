@@ -7,10 +7,10 @@ import os
 class IASSD_Backbone(nn.Module):
     """ Backbone for IA-SSD"""
 
-    def __init__(self, model_cfg, num_class, input_channels, **kwargs):
+    def __init__(self, model_cfg, input_channels, **kwargs):
         super().__init__()
         self.model_cfg = model_cfg
-        self.num_class = num_class
+        self.num_class = model_cfg.NUM_CLASSES
 
         self.SA_modules = nn.ModuleList()
         channel_in = input_channels - 3
@@ -121,6 +121,8 @@ class IASSD_Backbone(nn.Module):
         for i in range(len(self.SA_modules)):
             xyz_input = encoder_xyz[self.layer_inputs[i]]
             feature_input = encoder_features[self.layer_inputs[i]]
+
+
 
             if self.layer_types[i] == 'SA_Layer':
                 ctr_xyz = encoder_xyz[self.ctr_idx_list[i]] if self.ctr_idx_list[i] != -1 else None

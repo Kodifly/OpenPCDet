@@ -668,8 +668,9 @@ class IASSD_Head(PointHeadTemplate):
             distance[:, 1, :] = -1 * distance[:, 1, :]
             distance_min = torch.where(distance[:, 0, :] < distance[:, 1, :], distance[:, 0, :], distance[:, 1, :])
             distance_max = torch.where(distance[:, 0, :] > distance[:, 1, :], distance[:, 0, :], distance[:, 1, :])
+            
 
-            centerness = distance_min / distance_max
+            centerness = distance_min / (distance_max + 1e-6)
             centerness = centerness[:, 0] * centerness[:, 1] * centerness[:, 2]
             centerness = torch.clamp(centerness, min=1e-6)
             centerness = torch.pow(centerness, 1/3)
