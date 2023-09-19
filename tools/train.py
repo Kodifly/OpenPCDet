@@ -20,7 +20,7 @@ from train_utils.train_utils import train_model
 
 def parse_config():
     parser = argparse.ArgumentParser(description='arg parser')
-    parser.add_argument('--cfg_file', type=str, default='tools/cfgs/kitti_models/IA-SSD-loco.yaml', help='specify the config for training')
+    parser.add_argument('--cfg_file', type=str, default='/home/gabriel/kodifly-pcdet/tools/cfgs/kitti_models/IA-SSD_loco.yaml', help='specify the config for training')
 
     parser.add_argument('--batch_size', type=int, default=6, required=False, help='batch size for training')
     parser.add_argument('--epochs', type=int, default=60, required=False, help='number of epochs to train for')
@@ -43,7 +43,10 @@ def parse_config():
     parser.add_argument('--start_epoch', type=int, default=0, help='')
     parser.add_argument('--num_epochs_to_eval', type=int, default=30, help='number of checkpoints to be evaluated')
     parser.add_argument('--save_to_file', action='store_true', default=False, help='')
-    
+    parser.add_argument('--training_eval_frequency', type=int, default=2, help='how often to run eval during training')
+    parser.add_argument('--save_best_checkpoint',action='store_true', default=True, help='save the best ckpt during training (needs to)')
+    parser.add_argument('--training_eval_skip_epoch', type=int, default=0, help='only start evaluating during training after this epoch')
+
     parser.add_argument('--use_tqdm_to_record', action='store_true', default=False, help='if True, the intermediate losses will not be logged to file, only tqdm will be used')
     parser.add_argument('--logger_iter_interval', type=int, default=50, help='')
     parser.add_argument('--ckpt_save_time_interval', type=int, default=300, help='in terms of seconds')
