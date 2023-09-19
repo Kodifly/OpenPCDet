@@ -692,6 +692,8 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
                                  f"{mAP3d[j, 1, i]:.4f}, "
                                  f"{mAP3d[j, 2, i]:.4f}"))
 
+            ret_dict[f'{class_to_name[curcls]}AP@{min_overlaps[i, :, j][-1]:.2f}'] = mAP3d[j, 0, i]
+
             if compute_aos:
                 result += print_str((f"aos  AP:{mAPaos[j, 0, i]:.2f}, "
                                      f"{mAPaos[j, 1, i]:.2f}, "

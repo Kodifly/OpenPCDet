@@ -5,7 +5,7 @@ import glob
 import os
 from pathlib import Path
 from test import repeat_eval_ckpt
-
+from easydict import EasyDict
 import torch
 import torch.nn as nn
 from tensorboardX import SummaryWriter
@@ -168,6 +168,39 @@ def main():
         last_epoch=last_epoch, optim_cfg=cfg.OPTIMIZATION
     )
 
+
+    # -----------------------training eval stuff---------------------------
+    logger.info('**********************creating eval  %s/%s(%s)**********************'
+                % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
+
+    training_eval_frequency = args.training_eval_frequency
+    save_best_checkpoint = args.save_best_checkpoint
+    training_eval_skip_epoch = args.training_eval_skip_epoch
+    
+    test_set, test_loader, sampler = build_dataloader(
+        dataset_cfg=cfg.DATA_CONFIG,
+        class_names=cfg.CLASS_NAMES,
+        batch_size=args.batch_size,
+        dist=dist_train, workers=args.workers, logger=logger, training=False
+    )
+
+    eval_args = EasyDict({
+        'save_to_file': args.save_to_file,
+        'infer_time': True,
+    })
+
+
+    training_eval_dict = EasyDict({
+        'test_loader': test_loader,
+        'training_eval_skip_epoch': training_eval_skip_epoch,
+        'training_eval_frequency': training_eval_frequency,
+        'save_best_checkpoint': save_best_checkpoint,
+        'dist_train':dist_train,
+        'args': eval_args,
+        'output_dir': output_dir
+    })
+
+
     # -----------------------start training---------------------------
     logger.info('**********************Start training %s/%s(%s)**********************'
                 % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
@@ -196,6 +229,7 @@ def main():
         use_logger_to_record=not args.use_tqdm_to_record, 
         show_gpu_stat=not args.wo_gpu_stat,
         use_amp=args.use_amp,
+        training_eval_dict = training_eval_dict,
         cfg=cfg
     )
 

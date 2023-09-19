@@ -6,7 +6,7 @@ import time
 import glob
 from torch.nn.utils import clip_grad_norm_
 from pcdet.utils import common_utils, commu_utils
-
+from eval_utils import eval_utils
 
 def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, accumulated_iter, optim_cfg,
                     rank, tbar, total_it_each_epoch, dataloader_iter, tb_log=None, leave_pbar=False, 
@@ -151,12 +151,15 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 start_epoch, total_epochs, start_iter, rank, tb_log, ckpt_save_dir, train_sampler=None,
                 lr_warmup_scheduler=None, ckpt_save_interval=1, max_ckpt_save_num=50,
                 merge_all_iters_to_one_epoch=False, use_amp=False,
-                use_logger_to_record=False, logger=None, logger_iter_interval=None, ckpt_save_time_interval=None, show_gpu_stat=False, cfg=None):
+                use_logger_to_record=False, logger=None, logger_iter_interval=None, ckpt_save_time_interval=None, show_gpu_stat=False, 
+                training_eval_dict=None,cfg=None):
     accumulated_iter = start_iter
 
     # use for disable data augmentation hook
     hook_config = cfg.get('HOOK', None) 
     augment_disable_flag = False
+
+    best_car_mAP = 0 
 
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True, leave=(rank == 0)) as tbar:
         total_it_each_epoch = len(train_loader)
@@ -194,6 +197,27 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 use_amp=use_amp
             )
 
+            eval_cfg = training_eval_dict 
+
+            if (cur_epoch % eval_cfg.training_eval_frequency == 0) and cur_epoch > eval_cfg.training_eval_skip_epoch:
+
+                ret_dict = eval_utils.eval_one_epoch(
+                    cfg, eval_cfg.args, model, eval_cfg.test_loader, cur_epoch, logger, dist_test=eval_cfg.dist_train,
+                    result_dir=eval_cfg.output_dir
+                )
+                
+                if eval_cfg.save_best_checkpoint:
+                    if ret_dict['CarAP@0.50'] > best_car_mAP:
+                        best_car_mAP =  ret_dict['CarAP@0.50']
+                        ckpt_name = ckpt_save_dir / ('best_ckpt')
+                        save_checkpoint(
+                            checkpoint_state(model, optimizer, cur_epoch + 1, accumulated_iter), filename=ckpt_name,
+                        )
+
+                        logger.info(f"New best Car AP@0.5:{best_car_mAP}, saving ckpt to {ckpt_name}")
+                    else:
+                        logger.info(f"current epoch Car AP@0.5:{ret_dict['CarAP@0.50']} not better than best: {best_car_mAP}")
+
             # save trained model
             trained_epoch = cur_epoch + 1
             if trained_epoch % ckpt_save_interval == 0 and rank == 0:
@@ -209,6 +233,8 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 save_checkpoint(
                     checkpoint_state(model, optimizer, trained_epoch, accumulated_iter), filename=ckpt_name,
                 )
+
+
 
 
 def model_state_to_cpu(model_state):
