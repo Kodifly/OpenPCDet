@@ -198,11 +198,10 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
             )
 
             eval_cfg = training_eval_dict 
-
-            if (cur_epoch % eval_cfg.training_eval_frequency == 0) and cur_epoch > eval_cfg.training_eval_skip_epoch:
+            if ((cur_epoch + 1) % eval_cfg.training_eval_frequency == 0) and (cur_epoch + 1) > eval_cfg.training_eval_skip_epoch:
 
                 ret_dict = eval_utils.eval_one_epoch(
-                    cfg, eval_cfg.args, model, eval_cfg.test_loader, cur_epoch, logger, dist_test=eval_cfg.dist_train,
+                    cfg, eval_cfg.args, model, eval_cfg.test_loader, cur_epoch + 1, logger, dist_test=eval_cfg.dist_train,
                     result_dir=eval_cfg.output_dir
                 )
                 
@@ -214,9 +213,9 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                             checkpoint_state(model, optimizer, cur_epoch + 1, accumulated_iter), filename=ckpt_name,
                         )
 
-                        logger.info(f"New best Car AP@0.5:{best_car_mAP}, saving ckpt to {ckpt_name}")
+                        logger.info(f"Epoch {cur_epoch + 1} new best Car AP@0.5:{best_car_mAP}, saving ckpt to {ckpt_name}")
                     else:
-                        logger.info(f"current epoch Car AP@0.5:{ret_dict['CarAP@0.50']} not better than best: {best_car_mAP}")
+                        logger.info(f"Epoch {cur_epoch + 1} Car AP@0.5:{ret_dict['CarAP@0.50']} not better than best:{best_car_mAP}")
 
             # save trained model
             trained_epoch = cur_epoch + 1
