@@ -1,12 +1,15 @@
 import pickle
 import time
-
+import plotly.graph_objects as go
 import numpy as np
 import torch
 import tqdm
 
 from pcdet.models import load_data_to_gpu
 from pcdet.utils import common_utils
+import matplotlib.pyplot as plt
+import pandas as pd
+import os
 
 
 def statistics_info(cfg, ret_dict, metric, disp_dict):
@@ -17,6 +20,10 @@ def statistics_info(cfg, ret_dict, metric, disp_dict):
     min_thresh = cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST[0]
     disp_dict['recall_%s' % str(min_thresh)] = \
         '(%d, %d) / %d' % (metric['recall_roi_%s' % str(min_thresh)], metric['recall_rcnn_%s' % str(min_thresh)], metric['gt_num'])
+
+
+
+
 
 
 def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=False, result_dir=None):
@@ -130,10 +137,93 @@ def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=Fal
 
     logger.info(result_str)
     ret_dict.update(result_dict)
+    
+    create_visuals_and_tables(result_dict['eval_metrics'],final_output_dir)
+
 
     logger.info('Result is saved to %s' % result_dir)
     logger.info('****************Evaluation done.*****************')
     return ret_dict
+
+
+
+def plot_table_data(table_data, result_directory, plot_name):
+    # Create a DataFrame from the table data
+    df = pd.DataFrame(table_data)
+
+    # Separate the DataFrame into two, based on the scale of the metrics
+    df_count = df[['TP', 'FP', 'FN', 'num_gts']]
+    df_performance = df[['precision', 'recall', 'F1-score']]
+
+    # Drop duplicate rows
+    df_count = df_count.drop_duplicates()
+    df_performance = df_performance.drop_duplicates()
+
+    # Plot the count metrics
+    fig = go.Figure(data=[
+        go.Bar(name=f'TP {df_count["TP"].mean():.3f}', x=df_count.index, y=df_count['TP']),
+        go.Bar(name=f'FP {df_count["FP"].mean():.3f}', x=df_count.index, y=df_count['FP']),
+        go.Bar(name=f'FN {df_count["FN"].mean():.3f}', x=df_count.index, y=df_count['FN']),
+        go.Bar(name=f'num_gts {df_count["num_gts"].mean():.3f}', x=df_count.index, y=df_count['num_gts'])
+    ])
+    fig.update_layout(barmode='group', title_text=f'{plot_name} (Count Metrics)', xaxis_title="Difficulty", yaxis_title="Value")
+    fig.write_image(f"{result_directory}/{plot_name}_count_metrics.png")
+
+    # Plot the performance metrics
+    fig = go.Figure(data=[
+        go.Bar(name=f'precision {df_performance["precision"].mean():.3f}', x=df_performance.index, y=df_performance['precision']),
+        go.Bar(name=f'recall {df_performance["recall"].mean():.3f}', x=df_performance.index, y=df_performance['recall']),
+        go.Bar(name=f'F1-score {df_performance["F1-score"].mean():.3f}', x=df_performance.index, y=df_performance['F1-score'])
+    ])
+    fig.update_layout(barmode='group', title_text=f'{plot_name} (Performance Metrics)', xaxis_title="Difficulty", yaxis_title="Value")
+    fig.write_image(f"{result_directory}/{plot_name}_performance_metrics.png")
+def create_visuals_and_tables(data, result_directory):
+    # First Level: class_names
+    os.makedirs(result_directory,exist_ok=True)
+    for class_name in data.keys():
+        class_data = data[class_name]
+        
+        # Second Level: eval_metrics
+        for eval_metric in class_data.keys():
+            eval_data = class_data[eval_metric]
+            
+            # Third Level: IoU_threshold
+            for iou_threshold in eval_data.keys():
+                metrics_data = eval_data[iou_threshold]
+                
+                # Precision Recall Curve
+                fig, ax = plt.subplots()
+                ax.plot(metrics_data['recall'][0], metrics_data['precision'][0], label="0")
+                ax.plot(metrics_data['recall'][1], metrics_data['precision'][1], label="1")
+                ax.plot(metrics_data['recall'][2], metrics_data['precision'][2], label="2")
+                ax.set_xlabel('Recall')
+                ax.set_ylabel('Precision')
+                ax.set_title(f'Precision Recall Curve for Class: {class_name}, Eval_metric: {eval_metric}, IoU: {iou_threshold}')
+                ax.legend()
+                fig.savefig(f"{result_directory}/{class_name}_{eval_metric}_{iou_threshold}_precision_recall_curve.png")
+                
+                # Metrics Table
+                tp = metrics_data['TP']
+                fp = metrics_data['FP']
+                fn = metrics_data['FN']
+                num_gts = metrics_data['num_gts']
+                precision = {k: tp[k] / (tp[k] + fp[k]) for k in tp.keys()}
+                recall = {k: tp[k] / (tp[k] + fn[k]) for k in tp.keys()}
+                f1_score = {k: 2 * (precision[k] * recall[k]) / (precision[k] + recall[k]) for k in tp.keys()}
+                
+                table_data = {
+                'TP': {k: int(v) for k, v in tp.items()},
+                'FP': {k: int(v) for k, v in fp.items()},
+                'FN': {k: int(v) for k, v in fn.items()},
+                'num_gts': {k: int(v) for k, v in num_gts.items()},
+                'precision': {k: round(v, 3) for k, v in precision.items()},
+                'recall': {k: round(v, 3) for k, v in recall.items()},
+                'F1-score': {k: round(v, 3) for k, v in f1_score.items()},
+                }
+                df = pd.DataFrame(table_data)
+                plot_table_data(df, result_directory, f"{class_name}_{eval_metric}_{iou_threshold}_plot")
+                df.to_csv(f"{result_directory}/{class_name}_{eval_metric}_{iou_threshold}_metrics_table.csv", index=False)
+
 
 
 if __name__ == '__main__':
