@@ -159,7 +159,7 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
     hook_config = cfg.get('HOOK', None) 
     augment_disable_flag = False
 
-    best_car_mAP = 0 
+    best_mAP = 0 
 
     with tqdm.trange(start_epoch, total_epochs, desc='epochs', dynamic_ncols=True, leave=(rank == 0)) as tbar:
         total_it_each_epoch = len(train_loader)
@@ -205,17 +205,22 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                     result_dir=eval_cfg.output_dir
                 )
                 
+                cur_mAP = 0 
+                for c in cfg.CLASS_NAMES:
+                    cur_mAP += ret_dict[f'{c}_3d/easy'] 
+                cur_mAP /= len(cfg.CLASS_NAMES)
+                
                 if eval_cfg.save_best_checkpoint:
-                    if ret_dict['CarAP@0.50'] > best_car_mAP:
-                        best_car_mAP =  ret_dict['CarAP@0.50']
+                    if cur_mAP > best_mAP:
+                        best_mAP =  cur_mAP
                         ckpt_name = ckpt_save_dir / ('best_ckpt')
                         save_checkpoint(
                             checkpoint_state(model, optimizer, cur_epoch + 1, accumulated_iter), filename=ckpt_name,
                         )
 
-                        logger.info(f"Epoch {cur_epoch + 1} new best Car AP@0.5:{best_car_mAP}, saving ckpt to {ckpt_name}")
+                        logger.info(f"Epoch {cur_epoch + 1} new best mAP@0.5:{best_mAP}, saving ckpt to {ckpt_name}")
                     else:
-                        logger.info(f"Epoch {cur_epoch + 1} Car AP@0.5:{ret_dict['CarAP@0.50']} not better than best:{best_car_mAP}")
+                        logger.info(f"Epoch {cur_epoch + 1} mAP@0.5:{cur_mAP} not better than best:{best_mAP}")
 
             # save trained model
             trained_epoch = cur_epoch + 1

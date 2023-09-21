@@ -82,7 +82,7 @@ class KittiDataset(DatasetTemplate):
 
     def get_image_shape(self, idx):
         img_file = self.root_split_path / 'image_2' / ('%s.png' % idx)
-        assert img_file.exists()
+        assert img_file.exists(), f'{img_file}'
         return np.array(io.imread(img_file).shape[:2], dtype=np.int32)
 
     def get_label(self, idx):
@@ -107,7 +107,7 @@ class KittiDataset(DatasetTemplate):
 
     def get_calib(self, idx):
         calib_file = self.root_split_path / 'calib' / ('%s.txt' % idx)
-        assert calib_file.exists()
+        assert calib_file.exists(), calib_file
         return calibration_kitti.Calibration(calib_file)
 
     def get_road_plane(self, idx):
@@ -358,7 +358,7 @@ class KittiDataset(DatasetTemplate):
 
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.kitti_infos]
-        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names,kwargs['eval_overlap'])
 
         return ap_result_str, ap_dict
 
@@ -478,7 +478,7 @@ if __name__ == '__main__':
         ROOT_DIR = (Path(__file__).resolve().parent / '../../../').resolve()
         create_kitti_infos(
             dataset_cfg=dataset_cfg,
-            class_names=['Car', 'Pedestrian', 'Cyclist'],
-            data_path=ROOT_DIR / 'data' / 'kitti',
-            save_path=ROOT_DIR / 'data' / 'kitti'
+            class_names=['pivate_cars', 'taxis', 'motor_cycles','light_buses', 'buses', 'light_truck','heavy_truck', 'pedestrian', 'bicycles'],
+            data_path=ROOT_DIR / 'data' / 'tko',
+            save_path=ROOT_DIR / 'data' / 'tko'
         )

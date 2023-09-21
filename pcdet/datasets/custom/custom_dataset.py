@@ -121,7 +121,7 @@ class CustomDataset(DatasetTemplate):
         if 'annos' not in self.custom_infos[0].keys():
             return 'No ground-truth boxes for evaluation', {}
 
-        def kitti_eval(eval_det_annos, eval_gt_annos, map_name_to_kitti):
+        def kitti_eval(eval_det_annos, eval_gt_annos, map_name_to_kitti,eval_overlap):
             from ..kitti.kitti_object_eval_python import eval as kitti_eval
             from ..kitti import kitti_utils
 
@@ -132,7 +132,7 @@ class CustomDataset(DatasetTemplate):
             )
             kitti_class_names = [map_name_to_kitti[x] for x in class_names]
             ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
-                gt_annos=eval_gt_annos, dt_annos=eval_det_annos, current_classes=kitti_class_names
+                gt_annos=eval_gt_annos, dt_annos=eval_det_annos, current_classes=kitti_class_names,eval_overlap=eval_overlap
             )
             return ap_result_str, ap_dict
 
@@ -140,7 +140,8 @@ class CustomDataset(DatasetTemplate):
         eval_gt_annos = [copy.deepcopy(info['annos']) for info in self.custom_infos]
 
         if kwargs['eval_metric'] == 'kitti':
-            ap_result_str, ap_dict = kitti_eval(eval_det_annos, eval_gt_annos, self.map_class_to_kitti)
+            eval_overlap = kwargs['eval_overlap']
+            ap_result_str, ap_dict = kitti_eval(eval_det_annos, eval_gt_annos, self.map_class_to_kitti,eval_overlap)
         else:
             raise NotImplementedError
 

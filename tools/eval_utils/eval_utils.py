@@ -132,7 +132,9 @@ def eval_one_epoch(cfg, args, model, dataloader, epoch_id, logger, dist_test=Fal
     result_str, result_dict = dataset.evaluation(
         det_annos, class_names,
         eval_metric=cfg.MODEL.POST_PROCESSING.EVAL_METRIC,
-        output_path=final_output_dir
+        eval_overlap=cfg.MODEL.POST_PROCESSING.EVAL_OVERLAP,
+        output_path=final_output_dir,
+        
     )
 
     logger.info(result_str)
@@ -201,7 +203,7 @@ def create_visuals_and_tables(data, result_directory):
                 ax.set_title(f'Precision Recall Curve for Class: {class_name}, Eval_metric: {eval_metric}, IoU: {iou_threshold}')
                 ax.legend()
                 fig.savefig(f"{result_directory}/{class_name}_{eval_metric}_{iou_threshold}_precision_recall_curve.png")
-                
+                plt.close(fig)
                 # Metrics Table
                 tp = metrics_data['TP']
                 fp = metrics_data['FP']
