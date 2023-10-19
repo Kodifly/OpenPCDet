@@ -74,7 +74,7 @@ MODEL:
                 'mean_size': [
                     [3.9, 1.6, 1.56],
                     [0.8, 0.6, 1.73],
-                    [1.76, 0.6, 1.73]
+                    [1.76, 0.6, 1.73],
                 ]
             }
 
@@ -106,7 +106,17 @@ MODEL:
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
 
-        EVAL_METRIC: kitti
+        EVAL_METRIC: kitti    
+        EVAL_OVERLAP: [
+           # overlap_0_7, overlap_0_5 
+            # [bbox, bev, 3d],[bbox, bev, 3d]
+            [[0.7,0.7,0.7],[0.7,0.5,0.5]], # class 1
+            [[0.5,0.5,0.5],[0.5,0.25,0.25]], # class 2 
+            [[0.5,0.5,0.5],[0.5,0.25,0.25]], # class 3
+            [[0.7,0.7,0.7],[0.7,0.5,0.5]], # class 4
+            [[0.5,0.5,0.5],[0.5,0.25,0.25]], # class 5
+            [[0.7,0.7,0.7],[0.5,0.5,0.5]] # class 6
+        ]
 
         NMS_CONFIG:
             MULTI_CLASSES_NMS: False
