@@ -1,0 +1,101 @@
+# Use TensorRT image as base
+FROM nvcr.io/nvidia/tensorrt:22.07-py3
+
+# Setup environment variables for ROS
+ENV ROS_DISTRO noetic
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    lsb-release \
+    curl \
+    git \
+    ssh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GStreamer dependencies
+RUN apt-get update && apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl gstreamer1.0-gtk3 gstreamer1.0-qt5 gstreamer1.0-pulseaudio
+
+# Install ROS Noetic
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && apt-get install -y lsb-release curl && \
+    sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -cs` main" > /etc/apt/sources.list.d/ros-latest.list' && \
+    curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+    apt-get update && apt-get install -y ros-$ROS_DISTRO-desktop-full python3-rosdep python3-rosinstall python3-rosinstall-generator python3-wstool build-essential && \
+    rosdep init
+
+# Update rosdep
+RUN rosdep update
+RUN pip install --upgrade pip
+RUN pip install av onnxruntime-gpu imutils
+
+# Python Dependencies
+RUN python3 -m pip install --no-cache-dir --upgrade pip
+COPY requirements.txt requirements.txt
+RUN python3 -m pip install --no-cache-dir -r requirements.txt --user
+RUN python3 -m pip install --no-cache-dir torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+RUN python3 -m pip install --no-cache-dir cupy-cuda117
+RUN python3 -m pip install --no-cache-dir paddlepaddle-gpu==2.5.1.post117 -f https://www.paddlepaddle.org.cn/whl/linux/mkl/avx/stable.html
+
+RUN apt install ros-noetic-ros-numpy
+
+
+ARG TORCH_CUDA_ARCH_LIST="8.6+PTX"
+## Set command to bash shell
+
+RUN PIP_INSTALL="python3 -m pip --no-cache-dir install" && \
+        $PIP_INSTALL llvmlite numba
+
+RUN PIP_INSTALL="python3 -m pip --no-cache-dir install" && \
+        $PIP_INSTALL tensorboardX easydict pyyaml scikit-image tqdm SharedArray six
+
+RUN wget https://jaist.dl.sourceforge.net/project/boost/boost/1.68.0/boost_1_68_0.tar.gz && \
+    tar xzvf boost_1_68_0.tar.gz && \
+    cp -r ./boost_1_68_0/boost /usr/include && \
+    rm -rf ./boost_1_68_0 && \
+    rm -rf ./boost_1_68_0.tar.gz
+
+RUN python3 -m pip uninstall -y SharedArray && \
+    pip install SharedArray
+
+RUN python3 -m pip install --no-cache-dir cumm-cu117
+RUN python3 -m pip install --no-cache-dir spconv-cu117
+RUN cd /OpenPCDet && python3 setup.py develop
+
+RUN python3 -m pip install --no-cache-dir bbox filterpy shapely websocket_client
+
+RUN python3 -m pip install ultralytics==8.0.147
+
+RUN python3 -m pip uninstall -y opencv-python
+RUN git clone https://github.com/opencv/opencv.git
+
+RUN cd opencv && \
+    mkdir build && \
+    cd build && \
+    cmake -D CMAKE_BUILD_TYPE=RELEASE \
+	-D INSTALL_PYTHON_EXAMPLES=ON \
+	-D INSTALL_C_EXAMPLES=OFF \
+	-D PYTHON_EXECUTABLE=$(which python3) \
+	-D BUILD_opencv_python2=OFF \
+	-D CMAKE_INSTALL_PREFIX=$(python3 -c "import sys; print(sys.prefix)") \
+	-D PYTHON3_EXECUTABLE=$(which python3) \
+	-D PYTHON3_INCLUDE_DIR=$(python3 -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())") \
+	-D PYTHON3_PACKAGES_PATH=$(python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())") \
+	-D WITH_GSTREAMER=ON \
+	-D BUILD_EXAMPLES=ON .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        alsa-base \
+        alsa-utils \
+        libsndfile1-dev
+
+RUN apt-get update -y && \
+    apt-get install -y pulseaudio pulseaudio-utils
+
+WORKDIR /home/workspace
+
+RUN /bin/bash -c '. /opt/ros/$ROS_DISTRO/setup.bash'
+RUN echo "source /home/workspace/devel/setup.bash" >> ~/.bashrc

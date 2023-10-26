@@ -849,7 +849,7 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, eval_overlap,P
         result += "\n"
         
     ret_dict['eval_metrics'] = eval_metrics
-    return result, ret_dict,
+    return result, ret_dict
 
 
 def get_coco_eval_result(gt_annos, dt_annos, current_classes):
